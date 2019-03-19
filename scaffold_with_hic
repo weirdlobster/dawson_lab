@@ -1,0 +1,73 @@
+# Hi-C reads were used to scaffold using SALSA
+
+bwa mem -P -k 17 -U 0 -L 0,0 -T 25 /home/weirdlob/l3agenome/bowtie/L3A-contigs.fa /home/weirdlob/Trim/trimmomatic/HiCdatal3a/shorttrim/outpaired1.fq /home/weirdlob/Trim/trimmomatic/HiCdatal3a/shorttrim/outpaired2.fq > hic.sam
+
+Samtools was used to sort this by read (samtools sort -n -o ./hic_sorted.sam -T temp ./hic.sam)
+
+followed by removal of unmapped reads (samtools view -F 8) and the inclusion of only paired, 
+remaining reads (samtools view -S -b -f 1) into BAM format.
+
+
+#!/bin/bash
+#SBATCH --ntasks-per-node=24
+#SBATCH --mem=24GB
+module load bwa samtools bedtools salsa
+
+#Create bwa index with metagenome
+
+bwa index \
+-p metagenome_index \
+/path/to/metagenome.fasta
+
+#Trim HiC reads to 150
+java -jar ~/Trim/trimmomatic/trimmomatic-0.36.jar PE \
+-phred33 \
+/path/to/HiC_F.fastq \
+/path/to/HiC_R.fastq \
+HiC_paired_F.fq HiC_unpaired_F.fq HiC_paired_R.fq HiC_unpaired_R.fq \
+ILLUMINACLIP:TruSeq3-PE-2.fa:2:30:10 LEADING:3 TRAILING:3 CROP:150 SLIDINGWINDOW:4:15 MINLEN:36
+
+# Align reads to metagenome
+
+bwa mem \
+-P -k 17 -U 0 -L 0,0 -T 25 
+/path/to/metagenome_index \
+HiC_paired_F.fq \
+HiC_paired_R.fq \
+hic.sam
+
+# sort sam file
+samtools sort -n -T sorting -O sam hic.sam > hic_sorted.sam
+# keep only the reads that mapped
+samtools view -h -F 4 hic_sorted.sam > hic_sort_mapped.sam
+# keep only the reads that are still paired
+samtools view -h -f 1 hic_sort_mapped.sam > hic_sort_mapped_paired.sam
+# remove unmapped reads
+samtools view -h -F 8 hic_sort_mapped_paired.sam > hic_final.sam
+# convert to bam file
+samtools view -bS hic_final.sam > hic_final.bam
+
+# SALSA time
+run.py \
+-a /path/to/metagenome.fasta \
+-m hic_final.bam \
+-d output_folder
+
+# instructions from tutorial
+rm paths new* scaffold*
+
+python /home/weirdlob/salsa/iterative/run_pipeline.py \
+-a /path/to/metagenome.fasta \
+-l ./salsa/contig_length_new \
+-b ./salsa/alignment_unique.bed \
+-i 5
+
+python ~/salsa/SALSA/make_links.py \
+-b ./alignment_unique.bed \
+-d output_folder
+cd output_folder
+
+python /home/weirdlob/salsa/iterative/run_pipeline.py \
+-a /path/to/metagenome.fasta \
+-m ./hic_final.bam \
+-d output_folder
