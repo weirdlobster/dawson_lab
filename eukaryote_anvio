@@ -27,24 +27,68 @@ anvi-run-hmms \
 ##ALIGNMENT AND SORTING
 bowtie2-build  \
 -f ./contigs-fixed.fa \
-./bowtiemetagenomedb
+./bowtie_metagenome_db
 
-##############\/\/\/\/\/ under construction \/\/\/\/\/
 bowtie2-align \
 -x ./bowtiemetagenomedb \
 -p 30 \
--1 /path/to/metagenome1.fastq -q \
--2 /home/weirdlob/RAWsequenceDATA/seq1/L3A_CGATGTAT_L002_R2_001.fastq -q \
--S ./library1.sam
+--12 /path/to/cleaned_interleaved_metagenome_seq1.fastq -q \
+-S library1.sam
 
-samtools view -bS ./library1.sam > ./library1.bam
+samtools view -bS library1.sam > library1.bam
 
-bowtie2-align --fast -x ./bowtiemetagenomedb -p 30 -1 /home/weirdlob/RAWsequenceDATA/seq2/ChIP1_ACAGTG_L001_R1_001.fastq -q -2 /home/weirdlob/RAWsequenceDATA/seq2/ChIP1_ACAGTG_L001_R2_001.fastq -q -S ./library2.sam
-samtools view -bS ./library2.sam > ./library2.bam
+bowtie2-align \
+-x ./bowtiemetagenomedb \
+-p 30 \
+--12 /path/to/cleaned_interleaved_metagenome_seq2.fastq -q \
+-S library2.sam
 
-bowtie2-align --fast -x ./bowtiemetagenomedb -p 30 -1 /home/weirdlob/RAWsequenceDATA/seq2/ChIP2_GTGAAA_L001_R1_001.fastq -q -2 /home/weirdlob/RAWsequenceDATA/seq2/ChIP2_GTGAAA_L001_R2_001.fastq -q -S ./library3.sam
-samtools view -bS ./library3.sam > ./library3.bam
+samtools view -bS library2.sam > library2.bam
+
+bowtie2-align \
+-x ./bowtiemetagenomedb \
+-p 30 \
+--12 /path/to/cleaned_interleaved_metagenome_seq3.fastq -q \
+-S library3.sam
+
+samtools view -bS library3.sam > library3.bam
 
 hisat2-build ./contigs-fixed.fa ./hisatmetagenomedb
-hisat2-align -p 30 -x ./hisatmetagenomedb --novel-splicesite-outfile ./novelsplicesitees -1 /home/weirdlob/RAWsequenceDATA/seq4/L3A_GCCAATAT_L001_R1_001.fastq -2 /home/weirdlob/RAWsequenceDATA/seq4/L3A_GCCAATAT_L001_R2_001.fastq -S ./RNAseq.sam
-samtools view -bS ./RNAseq.sam > ./RNAseq.bam
+hisat2-align \
+-p 30 \
+-x ./hisatmetagenomedb \
+--novel-splicesite-outfile novelsplicesitees \
+-1 /path/to/RNA_F.fastq \
+-2 /path/to/RNA_F.fastq \
+-S RNAseq.sam
+
+samtools view -bS RNAseq.sam > RNAseq.bam
+
+##############\/\/\/\/\/ under construction \/\/\/\/\/
+tophat ./bowtiemetagenomedb </home/weirdlob/RAWsequenceDATA/seq4/L3A_GCCAATAT_L001_R1_001.fastq[/home/weirdlob/RAWsequenceDATA/seq4/L3A_GCCAATAT_L001_R2_001.fastq]>
+
+anvi-init-bam ./library1.bam -o ./processedlibrary1.bam
+anvi-init-bam ./library2.bam -o ./processedlibrary2.bam
+anvi-init-bam ./library3.bam -o ./processedlibrary3.bam
+anvi-init-bam ./library4.bam -o ./processedlibrary4.bam
+
+##PROFILE BUILD
+
+anvi-profile --skip-SNV-profiling -M 1500 -S Libary_1 -c ./metagenome.db -o ./profile1 -i ./processedlibrary1.bam
+
+anvi-profile --skip-SNV-profiling -M 1500 -S Libary_2 -c ./metagenome.db -o ./profile2 -i ./processedlibrary2.bam
+
+anvi-profile --skip-SNV-profiling -M 1500 -S Libary_3 -c ./metagenome.db -o ./profile3 -i ./processedlibrary3.bam
+
+anvi-profile --skip-SNV-profiling -M 1500 -S RNA_seq -c ./metagenome.db -o ./profile4 -i ./processedlibrary4.bam
+
+##MERGE
+
+anvi-merge -S Metagenome --enforce-hierarchical-clustering ./profile1/PROFILE.db ./profile2/PROFILE.db ./profile3/PROFILE.db ./profile4/PROFILE.db -o ./SAMPLES-MERGED -c ./metagenome.db
+
+??anvi-merge -S Metagenome */PROFILE.db -c metagenome.db -o ./MERGED --skip-hierarchical-clustering --skip-concoct-binning
+
+
+samtools sort -l 0 -T temp -o ./RNAseqsorted.bam ./RNAseq.bam
+stringtie ./RNAseqsorted.bam -o ./tscGTF -p 30
+??
