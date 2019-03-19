@@ -38,3 +38,10 @@ metaspades.py \
 -k 51,61,71,81,91,101,111,121 \ #k-mers
 -o /path/to/assembly \
 --12 /path/to/concat_cleaned_interleaved_metagenome_seq.fastq
+
+# Remove contigs under 1kb for analysis
+anvi-script-reformat-fasta \
+-l 1000 \
+--simplify-names \
+-o /path/to/metagenome.fasta \
+/path/to/assembly
